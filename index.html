@@ -296,11 +296,11 @@
         <div class="sub" id="weekSub">—</div>
       </div>
       <button class="navbtn" id="nextWeek" aria-label="Next week">›</button>
-      <button class="navbtn" id="settingsBtn" aria-label="Settings" title="Ask-Claude settings">⚙</button>
+      <button class="navbtn" id="settingsBtn" aria-label="Settings" title="AI planner settings">⚙</button>
     </div>
     <div id="summaryBanner" class="summary-banner" hidden></div>
     <div id="keyBanner" class="key-banner" hidden>
-      <span>Add your Anthropic API key to enable Ask-Claude.</span>
+      <span>Add your Google Gemini API key to enable AI planning.</span>
       <button type="button" id="keyBannerBtn">Add key</button>
     </div>
   </header>
@@ -399,15 +399,15 @@
   <div class="sheet-backdrop" id="settingsBackdrop"></div>
   <div class="sheet" id="settingsSheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
     <div class="sheet-handle"></div>
-    <h3 id="settingsTitle">Ask-Claude settings</h3>
-    <label for="apiKeyInput">Anthropic API key</label>
-    <input type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+    <h3 id="settingsTitle">AI planner settings</h3>
+    <label for="apiKeyInput">Google Gemini API key</label>
+    <input type="password" id="apiKeyInput" placeholder="Paste your Gemini API key" autocomplete="off" spellcheck="false">
     <label for="modelSelect">Model</label>
     <select id="modelSelect">
-      <option value="claude-sonnet-5">Claude Sonnet 5 (recommended)</option>
-      <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (fastest, cheapest)</option>
-      <option value="claude-opus-5">Claude Opus 5 (most capable)</option>
+      <option value="gemini-flash-latest">Gemini Flash (recommended)</option>
+      <option value="gemini-flash-lite-latest">Gemini Flash-Lite (fastest)</option>
     </select>
+    <div class="settings-note" style="margin-top:-4px">Gemini Pro isn't offered here — it typically needs a paid plan and returns a quota error on the free tier.</div>
     <div class="sheet-actions">
       <button type="button" class="btn" id="apiKeyClear">Clear key</button>
       <button type="button" class="btn primary" id="apiKeySave">Save</button>
@@ -415,9 +415,9 @@
     <div class="sheet-status" id="settingsStatus"></div>
     <div class="settings-note">
       Stored only in this browser's localStorage, on this device. Requests go straight from your
-      browser to Anthropic's API using this key — anyone with access to this browser profile can
+      browser to Google's Gemini API using this key — anyone with access to this browser profile can
       read it back out of localStorage or from network requests, so don't use this on a shared or
-      public computer. Get a key at console.anthropic.com. If Ask-Claude requests fail immediately,
+      public computer. Get a free-tier key at aistudio.google.com/apikey. If requests fail immediately,
       serve this file over http://localhost instead of opening it directly (file://) — some browsers
       block cross-origin requests from local files.
     </div>
@@ -776,15 +776,15 @@
     return Promise.resolve();
   }
 
-  // ---------- Ask-Claude: direct Anthropic API calls ----------
+  // ---------- AI planner: direct Google Gemini API calls ----------
   var API_KEY_KEY = "piste-board-api-key-v1";
   var MODEL_KEY = "piste-board-model-v1";
   var apiKey = "";
-  var selectedModel = "claude-sonnet-5";
+  var selectedModel = "gemini-flash-latest";
 
   function readStoredApiKey(){ try{ return localStorage.getItem(API_KEY_KEY) || ""; }catch(e){ return ""; } }
   function writeStoredApiKey(k){ try{ if(k) localStorage.setItem(API_KEY_KEY,k); else localStorage.removeItem(API_KEY_KEY); }catch(e){} }
-  function readStoredModel(){ try{ return localStorage.getItem(MODEL_KEY) || "claude-sonnet-5"; }catch(e){ return "claude-sonnet-5"; } }
+  function readStoredModel(){ try{ return localStorage.getItem(MODEL_KEY) || "gemini-flash-latest"; }catch(e){ return "gemini-flash-latest"; } }
   function writeStoredModel(m){ try{ localStorage.setItem(MODEL_KEY, m); }catch(e){} }
 
   function parseJsonLoose(text){
@@ -802,46 +802,57 @@
     }
   }
 
-  // Calls the Anthropic Messages API directly from the browser. Requires the
-  // anthropic-dangerous-direct-browser-access header — Anthropic's own opt-in
-  // for client-side use — since there is no backend proxying this request.
-  function callAnthropic(opts){
+  function geminiExtractText(candidate){
+    if(!candidate || !candidate.content || !Array.isArray(candidate.content.parts)) return "";
+    return candidate.content.parts.map(function(p){ return p.text||""; }).join("");
+  }
+
+  // Calls the Google Gemini API directly from the browser (generativelanguage.googleapis.com).
+  // There is no backend proxying this request — the key travels as a URL query param, exactly
+  // as Google's own client-side quickstarts do.
+  function callGemini(opts){
     if(!apiKey){
       var e0 = new Error("No API key set"); e0.code = "no_key";
       return Promise.reject(e0);
     }
+    var model = selectedModel || "gemini-flash-latest";
+    var generationConfig = { maxOutputTokens: opts.maxTokens || 1024 };
+    if(opts.json) generationConfig.responseMimeType = "application/json";
+    // The flash model spends part of maxOutputTokens on hidden "thinking" unless told not to,
+    // which can eat the whole budget and leave no visible text — turn it off. The lite model
+    // has no thinking mode and errors if this field is present at all, so skip it there.
+    if(!/lite/i.test(model)) generationConfig.thinkingConfig = { thinkingBudget: 0 };
     var body = {
-      model: selectedModel || "claude-sonnet-5",
-      max_tokens: opts.maxTokens || 1024,
-      messages: [{role:"user", content: opts.userText}],
-      stream: !!opts.stream
+      contents: [{ role:"user", parts:[{ text: opts.userText }] }],
+      generationConfig: generationConfig
     };
-    if(opts.system) body.system = opts.system;
+    if(opts.system) body.systemInstruction = { parts:[{ text: opts.system }] };
 
-    return fetch("https://api.anthropic.com/v1/messages", {
+    var base = "https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model);
+    var url = (opts.stream ? base+":streamGenerateContent?alt=sse&" : base+":generateContent?")+"key="+encodeURIComponent(apiKey);
+
+    return fetch(url, {
       method:"POST",
-      headers:{
-        "content-type":"application/json",
-        "x-api-key": apiKey,
-        "anthropic-version":"2023-06-01",
-        "anthropic-dangerous-direct-browser-access":"true"
-      },
+      headers:{ "content-type":"application/json" },
       body: JSON.stringify(body)
     }).then(function(res){
       if(!res.ok){
         return res.json().catch(function(){ return null; }).then(function(errBody){
           var msg = (errBody && errBody.error && errBody.error.message) || ("HTTP "+res.status);
           var err = new Error(msg);
-          if(res.status===401) err.code = "invalid_key";
+          if(res.status===403 || res.status===401 || /API key not valid/i.test(msg)) err.code = "invalid_key";
           else if(res.status===429) err.code = "rate_limited";
-          else if(res.status===413) err.code = "prompt_too_large";
+          else if(res.status===400 && /token/i.test(msg)) err.code = "prompt_too_large";
           else err.code = "upstream_error";
           throw err;
         });
       }
       if(!opts.stream){
         return res.json().then(function(data){
-          var text = (data.content||[]).map(function(b){ return b.text||""; }).join("");
+          if(data.promptFeedback && data.promptFeedback.blockReason){
+            var eb = new Error("Blocked: "+data.promptFeedback.blockReason); eb.code = "refused"; throw eb;
+          }
+          var text = geminiExtractText(data.candidates && data.candidates[0]);
           if(!text){ var e = new Error("Empty completion"); e.code = "empty_completion"; throw e; }
           return text;
         });
@@ -850,7 +861,7 @@
       var decoder = new TextDecoder();
       var buf = "", full = "";
       function processChunk(chunk){
-        var lines = chunk.split("\n");
+        var lines = chunk.split(/\r?\n/);
         var data = null;
         lines.forEach(function(l){
           if(l.indexOf("data:")===0) data = l.slice(5).trim();
@@ -858,13 +869,15 @@
         if(!data) return;
         var json;
         try{ json = JSON.parse(data); }catch(e){ return; }
-        if(json.type==="content_block_delta" && json.delta && json.delta.type==="text_delta"){
-          full += json.delta.text;
-          if(opts.onDelta) opts.onDelta(full);
-        } else if(json.type==="error"){
-          var err = new Error((json.error && json.error.message) || "stream error");
-          err.code = "upstream_error";
+        if(json.promptFeedback && json.promptFeedback.blockReason){
+          var err = new Error("Blocked: "+json.promptFeedback.blockReason);
+          err.code = "refused";
           throw err;
+        }
+        var t = geminiExtractText(json.candidates && json.candidates[0]);
+        if(t){
+          full += t;
+          if(opts.onDelta) opts.onDelta(full);
         }
       }
       function pump(){
@@ -875,7 +888,8 @@
             return full;
           }
           buf += decoder.decode(step.value, {stream:true});
-          var parts = buf.split("\n\n");
+          // Google's SSE stream separates records with CRLF CRLF, not a bare double newline.
+          var parts = buf.split(/\r?\n\r?\n/);
           buf = parts.pop();
           parts.forEach(processChunk);
           return pump();
@@ -885,12 +899,13 @@
     });
   }
 
-  function callAnthropicJSON(prompt){
-    return callAnthropic({
+  function callGeminiJSON(prompt){
+    return callGemini({
       system: "You are a strict JSON generator. Respond with ONLY valid JSON matching the requested shape — no markdown code fences, no commentary, no text before or after the JSON.",
       userText: prompt,
       maxTokens: 3000,
-      stream:false
+      stream:false,
+      json:true
     }).then(function(text){
       try{
         return parseJsonLoose(text);
@@ -924,7 +939,7 @@
 
   function updateComposerHint(){
     if(!apiKey){
-      composerHint.textContent = "Add your Anthropic API key in Settings (⚙) to enable Ask-Claude.";
+      composerHint.textContent = "Add your Gemini API key in Settings (⚙) to enable AI planning.";
       keyBanner.hidden = false;
     } else {
       composerHint.textContent = 'Ask for a plan, note a half day / weekend shift, or try "what should I do this week?"';
@@ -1241,7 +1256,7 @@
   howtoBtn.addEventListener("click", function(){
     if(!currentBlock) return;
     if(!apiKey){
-      setSheetStatus("Add your Anthropic API key in Settings first.", true);
+      setSheetStatus("Add your Gemini API key in Settings first.", true);
       openSettings();
       return;
     }
@@ -1250,7 +1265,7 @@
     howtoBox.hidden = false;
     howtoText.textContent = "Thinking…";
     setSheetStatus("");
-    callAnthropic({
+    callGemini({
       userText: howToPrompt(b),
       maxTokens: 500,
       stream: true,
@@ -1264,7 +1279,7 @@
     }).catch(function(err){
       var code = err && err.code;
       if(code !== "empty_completion") howtoText.textContent = "";
-      if(code === "no_key"){ setSheetStatus("Add your Anthropic API key in Settings first."); openSettings(); }
+      if(code === "no_key"){ setSheetStatus("Add your Gemini API key in Settings first."); openSettings(); }
       else if(code === "invalid_key"){ setSheetStatus("That API key was rejected — check it in Settings."); }
       else if(code === "rate_limited"){ setSheetStatus("Too many requests just now — try again shortly."); }
       else if(code === "prompt_too_large"){ setSheetStatus("That request was too large — try again."); }
@@ -1295,7 +1310,7 @@
     writeStoredApiKey(apiKey);
     writeStoredModel(selectedModel);
     updateComposerHint();
-    settingsStatus.textContent = apiKey ? "Saved." : "No key set — Ask-Claude is disabled.";
+    settingsStatus.textContent = apiKey ? "Saved." : "No key set — AI planning is disabled.";
     settingsStatus.classList.remove("err");
   });
   apiKeyClearBtn.addEventListener("click", function(){
@@ -1307,7 +1322,7 @@
     settingsStatus.classList.remove("err");
   });
 
-  // ---------- ask-Claude composer ----------
+  // ---------- AI planner composer ----------
   function setComposerStatus(msg, isErr){
     composerStatus.textContent = msg || "";
     composerStatus.classList.toggle("err", !!isErr);
@@ -1447,14 +1462,14 @@
     var message = composerInput.value.trim();
     if(!message) return;
     if(!apiKey){
-      setComposerStatus("Add your Anthropic API key in Settings first.", true);
+      setComposerStatus("Add your Gemini API key in Settings first.", true);
       openSettings();
       return;
     }
     setComposerBusy(true);
     setComposerStatus("Planning your week…");
     var prompt = buildPrompt(message);
-    callAnthropicJSON(prompt).then(function(data){
+    callGeminiJSON(prompt).then(function(data){
       return applyPlan(data);
     }).then(function(target){
       selectedMonday = target;
@@ -1470,7 +1485,7 @@
       var msg;
       switch(code){
         case "no_key":
-          msg = "Add your Anthropic API key in Settings first.";
+          msg = "Add your Gemini API key in Settings first.";
           openSettings();
           break;
         case "invalid_key":
@@ -1486,7 +1501,10 @@
           msg = "That request plus the current week is too much to send — try a shorter message.";
           break;
         case "empty_completion":
-          msg = "Claude didn't produce a plan for that — try rephrasing.";
+          msg = "Gemini didn't produce a plan for that — try rephrasing.";
+          break;
+        case "refused":
+          msg = "Gemini declined that request — try rephrasing.";
           break;
         case "bad_shape":
           msg = "Got back something that wasn't a usable plan — try again, maybe with simpler wording.";
