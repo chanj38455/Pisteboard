@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Piste Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --bg:#EEF1F5;
+    --surface:#FFFFFF;
+    --surface-2:#F7F9FC;
+    --ink:#182131;
+    --muted:#5E6C84;
+    --line:#DCE3EC;
+    --accent:#DD5A2C;
+    --accent-ink:#FFF7F2;
+    --work:#2F6FA6;
+    --gym:#DD5A2C;
+    --ski:#1E97A3;
+    --dinner:#3D8C5C;
+    --rest:#7C6FC4;
+    --other:#7C8AA0;
+    --shadow: 0 1px 2px rgba(24,33,49,.06), 0 6px 20px -8px rgba(24,33,49,.18);
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0F1520;
+      --surface:#171F2E;
+      --surface-2:#131A27;
+      --ink:#E9EFF8;
+      --muted:#93A2BB;
+      --line:#28334A;
+      --accent:#FF7B47;
+      --accent-ink:#1A1006;
+      --work:#6FB2E6;
+      --gym:#FF7B47;
+      --ski:#4FCBD6;
+      --dinner:#74CB94;
+      --rest:#A99CF0;
+      --other:#8FA0BC;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -8px rgba(0,0,0,.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0F1520;
+    --surface:#171F2E;
+    --surface-2:#131A27;
+    --ink:#E9EFF8;
+    --muted:#93A2BB;
+    --line:#28334A;
+    --accent:#FF7B47;
+    --accent-ink:#1A1006;
+    --work:#6FB2E6;
+    --gym:#FF7B47;
+    --ski:#4FCBD6;
+    --dinner:#74CB94;
+    --rest:#A99CF0;
+    --other:#8FA0BC;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -8px rgba(0,0,0,.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html, body{ height:100%; margin:0; }
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    overscroll-behavior-y:none;
+  }
+  .mono{ font-family:"IBM Plex Mono", ui-monospace, SFMono-Regular, monospace; font-variant-numeric:tabular-nums; }
+  button{ font:inherit; color:inherit; cursor:pointer; }
+
+  /* ---- top bar ---- */
+  .topbar{
+    position:sticky; top:env(safe-area-inset-top, 0px); z-index:20;
+    background:var(--bg);
+    padding: 14px 16px 0;
+    border-bottom:1px solid transparent;
+  }
+  .topbar-row{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+  }
+  .navbtn{
+    width:34px; height:34px; border-radius:50%; border:1px solid var(--line); background:var(--surface);
+    font-size:16px; line-height:1; display:flex; align-items:center; justify-content:center;
+    box-shadow:var(--shadow); flex:none;
+  }
+  .navbtn:active{ transform:scale(.94); }
+  .week-info{ text-align:center; flex:1; min-width:0; }
+  .week-info h1{
+    margin:0; font-family:"Fraunces", Georgia, serif; font-weight:600; font-size:21px;
+    text-wrap:balance;
+  }
+  .week-info .sub{ margin:2px 0 0; font-size:11.5px; color:var(--muted); letter-spacing:.03em; }
+
+  .summary-banner{
+    margin:10px 0 0; padding:9px 12px; background:var(--surface-2); border:1px solid var(--line);
+    border-radius:10px; font-size:12.5px; color:var(--muted); font-style:italic;
+  }
+  .key-banner{
+    margin:10px 0 0; padding:9px 12px; background:var(--surface-2); border:1px solid var(--line);
+    border-radius:10px; font-size:12px; color:var(--muted); display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .key-banner button{ flex:none; background:transparent; border:none; color:var(--accent); font-weight:600; font-size:12px; }
+
+  .day-pills{
+    display:flex; gap:7px; overflow-x:auto; padding:12px 16px 10px; scrollbar-width:none;
+  }
+  .day-pills::-webkit-scrollbar{ display:none; }
+  .day-pill{
+    flex:none; width:50px; padding:7px 0 8px; border-radius:12px; border:1px solid var(--line);
+    background:var(--surface); text-align:center; scroll-snap-align:start;
+  }
+  .day-pill .dow{ display:block; font-size:10px; letter-spacing:.06em; color:var(--muted); text-transform:uppercase; }
+  .day-pill .num{ display:block; font-family:"Fraunces", Georgia, serif; font-weight:600; font-size:17px; margin-top:2px; }
+  .day-pill.is-today .num{ color:var(--accent); }
+  .day-pill.is-selected{ background:var(--ink); border-color:var(--ink); }
+  .day-pill.is-selected .dow{ color:rgba(255,255,255,.65); }
+  .day-pill.is-selected .num{ color:var(--surface); }
+  .day-pill .dot{ display:block; width:4px; height:4px; border-radius:50%; background:var(--accent); margin:3px auto 0; visibility:hidden; }
+  .day-pill.has-plan .dot{ visibility:visible; }
+  .day-pill.is-selected .dot{ background:var(--surface); }
+
+  /* ---- agenda ---- */
+  .agenda{ flex:1; overflow-y:auto; padding: 4px 16px 18px; }
+  .day-heading{
+    display:flex; align-items:baseline; justify-content:space-between; margin:8px 2px 12px;
+  }
+  .day-heading h2{
+    margin:0; font-family:"Fraunces", Georgia, serif; font-weight:600; font-size:19px;
+  }
+  .day-heading .date-sub{ font-size:12px; color:var(--muted); }
+
+  .block-list{ display:flex; flex-direction:column; gap:9px; }
+  .block{
+    position:relative; background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    padding:11px 40px 11px 14px; box-shadow:var(--shadow);
+    border-left:4px solid var(--cat-color, var(--other));
+  }
+  .block .row1{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  .block .time{ font-size:12.5px; color:var(--muted); flex:none; }
+  .block .title{ font-weight:600; font-size:14.5px; }
+  .block .detail{ margin-top:4px; font-size:12.5px; color:var(--muted); line-height:1.45; }
+  .block .cat-label{
+    font-size:9.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--cat-color, var(--other));
+    font-weight:600;
+  }
+  .block .del{
+    position:absolute; top:8px; right:8px; width:24px; height:24px; border-radius:50%;
+    border:none; background:transparent; color:var(--muted); font-size:15px; line-height:1;
+  }
+  .block .default-note{ position:absolute; top:10px; right:38px; font-size:9.5px; color:var(--muted); }
+
+  .empty-note{
+    padding:22px 14px; text-align:center; color:var(--muted); font-size:13px; border:1px dashed var(--line);
+    border-radius:12px; background:var(--surface-2);
+  }
+
+  .add-toggle{
+    margin-top:12px; width:100%; padding:11px; border-radius:12px; border:1px dashed var(--line);
+    background:transparent; color:var(--muted); font-size:13px; font-weight:500;
+  }
+  .add-toggle:active{ background:var(--surface-2); }
+
+  .add-form{
+    margin-top:10px; background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    padding:12px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:8px;
+  }
+  .add-form .grid2{ display:flex; gap:8px; }
+  .add-form label{ font-size:10.5px; color:var(--muted); letter-spacing:.03em; text-transform:uppercase; display:block; margin-bottom:3px; }
+  .add-form input, .add-form select, .add-form textarea{
+    width:100%; padding:8px 9px; border-radius:8px; border:1px solid var(--line); background:var(--surface-2);
+    color:var(--ink); font:inherit; font-size:13.5px;
+  }
+  .add-form textarea{ resize:vertical; min-height:44px; }
+  .add-form .field{ flex:1; min-width:0; }
+  .add-form .actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:2px; }
+  .btn{ padding:8px 14px; border-radius:9px; border:1px solid var(--line); background:var(--surface-2); font-size:13px; font-weight:500; }
+  .btn.primary{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  .btn:active{ transform:scale(.97); }
+
+  /* ---- composer ---- */
+  .composer{
+    position:sticky; bottom:0; z-index:20; background:var(--bg);
+    padding: 8px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    border-top:1px solid var(--line);
+  }
+  .composer-status{
+    min-height:16px; font-size:11.5px; color:var(--muted); margin-bottom:6px; padding:0 2px;
+  }
+  .composer-status.err{ color:var(--gym); }
+  #composerForm{ display:flex; gap:8px; align-items:flex-end; }
+  #composerInput{
+    flex:1; min-width:0; padding:11px 14px; border-radius:20px; border:1px solid var(--line);
+    background:var(--surface); color:var(--ink); font:inherit; font-size:14px; box-shadow:var(--shadow);
+  }
+  #composerInput:focus{ outline:2px solid var(--accent); outline-offset:1px; }
+  #composerSend{
+    flex:none; width:42px; height:42px; border-radius:50%; border:none; background:var(--accent);
+    color:var(--accent-ink); font-size:17px; box-shadow:var(--shadow);
+  }
+  #composerSend:disabled{ opacity:.5; }
+  #composerSend:active{ transform:scale(.94); }
+  .composer-hint{ font-size:10.5px; color:var(--muted); text-align:center; margin-top:6px; }
+
+  @media (prefers-reduced-motion:no-preference){
+    .block{ transition:transform .12s ease; }
+  }
+  .block{ cursor:pointer; }
+  .block:active{ transform:scale(.985); }
+  .block .guide-note{ display:inline-block; margin-top:5px; font-size:10px; letter-spacing:.04em; text-transform:uppercase; color:var(--cat-color, var(--other)); }
+
+  /* ---- sheets (detail + settings) ---- */
+  .sheet-backdrop{
+    position:fixed; inset:0; background:rgba(10,14,22,.42); z-index:40; opacity:0;
+    pointer-events:none; transition:opacity .16s ease;
+  }
+  .sheet-backdrop.open{ opacity:1; pointer-events:auto; }
+  .sheet{
+    position:fixed; left:0; right:0; bottom:0; z-index:41;
+    background:var(--surface); border-radius:18px 18px 0 0;
+    box-shadow:0 -8px 30px -8px rgba(0,0,0,.35);
+    padding:10px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+    max-height:82vh; overflow-y:auto;
+    transform:translateY(100%); transition:transform .2s ease;
+  }
+  .sheet.open{ transform:translateY(0); }
+  .sheet-handle{ width:36px; height:4px; border-radius:2px; background:var(--line); margin:2px auto 12px; }
+  .sheet-head{ display:flex; align-items:center; gap:10px; }
+  .sheet-time{ font-size:13px; color:var(--muted); }
+  .sheet-cat{ font-size:10px; letter-spacing:.06em; text-transform:uppercase; font-weight:600; color:var(--cat-color, var(--other)); }
+  .sheet h3{ font-family:"Fraunces", Georgia, serif; font-weight:600; font-size:19px; margin:6px 0 14px; text-wrap:balance; }
+  .sheet label{ font-size:10.5px; color:var(--muted); letter-spacing:.03em; text-transform:uppercase; display:block; margin-bottom:5px; }
+  .sheet textarea{
+    width:100%; min-height:64px; padding:9px 10px; border-radius:9px; border:1px solid var(--line);
+    background:var(--surface-2); color:var(--ink); font:inherit; font-size:13.5px; resize:vertical;
+  }
+  .sheet input[type="password"], .sheet input[type="text"], .sheet select{
+    width:100%; padding:9px 10px; border-radius:9px; border:1px solid var(--line);
+    background:var(--surface-2); color:var(--ink); font:inherit; font-size:13.5px; margin-bottom:12px;
+  }
+  .howto-box{ margin-top:16px; padding:12px 13px; border-radius:12px; background:var(--surface-2); border:1px solid var(--line); }
+  .howto-box .howto-label{ font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; font-weight:600; }
+  .howto-box .howto-text{ font-size:13.5px; line-height:1.55; white-space:pre-wrap; }
+
+  /* ---- tasks (work) ---- */
+  .tasks-box{ margin-top:16px; }
+  .tasks-box .tasks-label{ font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; font-weight:600; }
+  .task-list{ display:flex; flex-direction:column; gap:7px; margin-bottom:10px; }
+  .task-row{
+    display:flex; align-items:flex-start; gap:9px; padding:9px 10px; border-radius:10px;
+    background:var(--surface-2); border:1px solid var(--line);
+  }
+  .task-row input[type="checkbox"]{ margin-top:2px; width:17px; height:17px; accent-color:var(--work); flex:none; }
+  .task-row .task-main{ flex:1; min-width:0; }
+  .task-row .task-text{ font-size:13.5px; line-height:1.4; }
+  .task-row.done .task-text{ text-decoration:line-through; color:var(--muted); }
+  .task-row .task-due{ display:inline-block; margin-top:3px; font-size:10.5px; color:var(--muted); }
+  .task-row.overdue .task-due{ color:var(--gym); font-weight:600; }
+  .task-row .task-del{
+    flex:none; width:22px; height:22px; border-radius:50%; border:none; background:transparent;
+    color:var(--muted); font-size:14px; line-height:1;
+  }
+  .task-empty{ font-size:12.5px; color:var(--muted); padding:4px 2px 10px; }
+  .task-add-row{ display:flex; gap:7px; }
+  .task-add-row input[type="text"]{ flex:1; min-width:0; margin-bottom:0; }
+  .task-add-row input[type="date"]{ flex:none; width:132px; }
+  .task-add-row input{
+    padding:8px 9px; border-radius:8px; border:1px solid var(--line); background:var(--surface-2);
+    color:var(--ink); font:inherit; font-size:13px;
+  }
+  .sheet-actions{ display:flex; gap:9px; margin-top:16px; }
+  .sheet-actions .btn{ flex:1; }
+  .sheet-status{ min-height:14px; font-size:11.5px; color:var(--muted); margin-top:9px; }
+  .sheet-status.err{ color:var(--gym); }
+  .settings-note{ margin-top:14px; font-size:11px; color:var(--muted); line-height:1.55; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="topbar-row">
+      <button class="navbtn" id="prevWeek" aria-label="Previous week">‹</button>
+      <div class="week-info">
+        <h1 id="weekRange">—</h1>
+        <div class="sub" id="weekSub">—</div>
+      </div>
+      <button class="navbtn" id="nextWeek" aria-label="Next week">›</button>
+      <button class="navbtn" id="settingsBtn" aria-label="Settings" title="Ask-Claude settings">⚙</button>
+    </div>
+    <div id="summaryBanner" class="summary-banner" hidden></div>
+    <div id="keyBanner" class="key-banner" hidden>
+      <span>Add your Anthropic API key to enable Ask-Claude.</span>
+      <button type="button" id="keyBannerBtn">Add key</button>
+    </div>
+  </header>
+
+  <nav class="day-pills" id="dayPills"></nav>
+
+  <main class="agenda" id="agenda">
+    <div class="day-heading">
+      <h2 id="dayHeading">—</h2>
+      <span class="date-sub" id="dayDateSub"></span>
+    </div>
+    <div class="block-list" id="blockList"></div>
+    <button class="add-toggle" id="addToggle" type="button">+ Add to this day</button>
+    <form class="add-form" id="addForm" hidden>
+      <div class="grid2">
+        <div class="field">
+          <label for="fTime">Start</label>
+          <input type="time" id="fTime" required>
+        </div>
+        <div class="field">
+          <label for="fEnd">End (optional)</label>
+          <input type="time" id="fEnd">
+        </div>
+      </div>
+      <div class="field">
+        <label for="fTitle">Title</label>
+        <input type="text" id="fTitle" maxlength="80" placeholder="e.g. Foam rolling" required>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label for="fCategory">Category</label>
+          <select id="fCategory">
+            <option value="work">Work</option>
+            <option value="gym">Gym</option>
+            <option value="ski">Ski / outdoor</option>
+            <option value="dinner">Dinner</option>
+            <option value="rest">Rest</option>
+            <option value="social">Social</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="fDetail">Notes (optional)</label>
+        <textarea id="fDetail" maxlength="280"></textarea>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn" id="fCancel">Cancel</button>
+        <button type="submit" class="btn primary">Add</button>
+      </div>
+    </form>
+  </main>
+
+  <footer class="composer">
+    <div class="composer-status" id="composerStatus"></div>
+    <form id="composerForm">
+      <input id="composerInput" type="text" placeholder="e.g. plan gym for ski prep next week" autocomplete="off" maxlength="300">
+      <button type="submit" id="composerSend" aria-label="Send">➤</button>
+    </form>
+    <div class="composer-hint" id="composerHint">Ask for a plan, note a half day / weekend shift, or try "what should I do this week?"</div>
+  </footer>
+
+  <div class="sheet-backdrop" id="sheetBackdrop"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <span class="sheet-time mono" id="sheetTime"></span>
+      <span class="sheet-cat" id="sheetCat"></span>
+    </div>
+    <h3 id="sheetTitle">—</h3>
+    <label for="sheetNotes">Notes</label>
+    <textarea id="sheetNotes" maxlength="500" placeholder="Anything you want to remember about this"></textarea>
+
+    <div class="howto-box" id="howtoBox" hidden>
+      <div class="howto-label">How to</div>
+      <div class="howto-text" id="howtoText"></div>
+    </div>
+
+    <div class="tasks-box" id="tasksBox" hidden>
+      <div class="tasks-label">Tasks</div>
+      <div class="task-list" id="taskList"></div>
+      <div class="task-add-row">
+        <input type="text" id="taskText" maxlength="120" placeholder="Add a task">
+        <input type="date" id="taskDue" aria-label="Due date (optional)">
+        <button type="button" class="btn primary" id="taskAdd">Add</button>
+      </div>
+    </div>
+
+    <div class="sheet-actions">
+      <button type="button" class="btn" id="howtoBtn">Look up how to do this</button>
+      <button type="button" class="btn primary" id="sheetSave">Save</button>
+    </div>
+    <div class="sheet-status" id="sheetStatus"></div>
+  </div>
+
+  <div class="sheet-backdrop" id="settingsBackdrop"></div>
+  <div class="sheet" id="settingsSheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="sheet-handle"></div>
+    <h3 id="settingsTitle">Ask-Claude settings</h3>
+    <label for="apiKeyInput">Anthropic API key</label>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+    <label for="modelSelect">Model</label>
+    <select id="modelSelect">
+      <option value="claude-sonnet-5">Claude Sonnet 5 (recommended)</option>
+      <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (fastest, cheapest)</option>
+      <option value="claude-opus-5">Claude Opus 5 (most capable)</option>
+    </select>
+    <div class="sheet-actions">
+      <button type="button" class="btn" id="apiKeyClear">Clear key</button>
+      <button type="button" class="btn primary" id="apiKeySave">Save</button>
+    </div>
+    <div class="sheet-status" id="settingsStatus"></div>
+    <div class="settings-note">
+      Stored only in this browser's localStorage, on this device. Requests go straight from your
+      browser to Anthropic's API using this key — anyone with access to this browser profile can
+      read it back out of localStorage or from network requests, so don't use this on a shared or
+      public computer. Get a key at console.anthropic.com. If Ask-Claude requests fail immediately,
+      serve this file over http://localhost instead of opening it directly (file://) — some browsers
+      block cross-origin requests from local files.
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- date helpers ----------
+  var DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  var MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  function pad(n){ return String(n).padStart(2,"0"); }
+  function toISO(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+  function fromISO(s){ var p=s.split("-").map(Number); return new Date(p[0],p[1]-1,p[2]); }
+  function addDays(d,n){ var r=new Date(d); r.setDate(r.getDate()+n); return r; }
+  function mondayOf(d){ var day=d.getDay(); var diff=(day===0?-6:1-day); return addDays(d,diff); }
+  function mondayISO(d){ return toISO(mondayOf(d)); }
+  function addWeeksISO(mIso,n){ return toISO(addDays(fromISO(mIso), 7*n)); }
+  function weekDates(mIso){ var m=fromISO(mIso); var out=[]; for(var i=0;i<7;i++) out.push(toISO(addDays(m,i))); return out; }
+  function isoWeekNumber(d){
+    var t=new Date(d.getTime()); var dayNr=(d.getDay()+6)%7;
+    t.setDate(t.getDate()-dayNr+3);
+    var firstThu=t.getTime();
+    t.setMonth(0,1);
+    if(t.getDay()!==4) t.setMonth(0,1+((4-t.getDay())+7)%7);
+    return 1+Math.round((firstThu-t.getTime())/604800000);
+  }
+  function normalizeTime(t){
+    if(!t) return null;
+    var m=String(t).match(/^(\d{1,2}):(\d{2})/);
+    if(!m) return null;
+    var h=Math.min(23,parseInt(m[1],10)); var mi=Math.min(59,parseInt(m[2],10));
+    return pad(h)+":"+pad(mi);
+  }
+  function todayISO(){ return toISO(new Date()); }
+  function newId(){
+    if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return "id-"+Date.now()+"-"+Math.random().toString(36).slice(2,8);
+  }
+  function sortBlocks(arr){
+    arr.sort(function(a,b){ return (a.time||"").localeCompare(b.time||""); });
+    return arr;
+  }
+
+  var CAT_META = {
+    work:   {label:"Work"},
+    gym:    {label:"Gym"},
+    ski:    {label:"Ski / outdoor"},
+    dinner: {label:"Dinner"},
+    rest:   {label:"Rest"},
+    social: {label:"Social"},
+    other:  {label:"Other"}
+  };
+  var CAT_KEYS = Object.keys(CAT_META);
+
+  // ---------- default conditioning template (from Jacky's weekly schedule) ----------
+  function workBlockFor(weekday){
+    if(weekday>=1 && weekday<=4) return {time:"09:00", endTime:"18:00", title:"Work", detail:"Supernova Real Estate — Euston, NW1", category:"work"};
+    if(weekday===5) return {time:"09:00", endTime:"16:30", title:"Work", detail:"Supernova Real Estate — Euston, NW1 (short day)", category:"work"};
+    return null;
+  }
+
+  // ---------- standing rules (changes that outlive a single week) ----------
+  // Two kinds, both scoped to a date range rather than one week's data, so
+  // they also govern weeks that don't exist yet and get swept back over
+  // weeks that already do:
+  //   scope "work":     {mode:"off"|"hours", from, to, time?, endTime?, title, detail}
+  //                      e.g. "27th Nov is my last day" -> {mode:"off", from:"2026-11-28", to:null}
+  //   scope "category": {category, action:"off", from, to}
+  //                      e.g. "no more gym once ski season starts" ->
+  //                      {category:"gym", action:"off", from:"2026-12-01", to:"2027-04-30"}
+  var workSettings = {rules:[]};
+  var SETTINGS_KEY = "piste-board-settings-v1";
+
+  function ruleActiveOn(r, dateISO){
+    return r.from <= dateISO && (!r.to || dateISO <= r.to);
+  }
+  function findStandingWorkRule(dateISO){
+    var matches = (workSettings.rules||[]).filter(function(r){
+      return r.scope !== "category" && ruleActiveOn(r, dateISO);
+    });
+    if(!matches.length) return null;
+    matches.sort(function(a,c){ return c.from.localeCompare(a.from); }); // most recently-starting rule wins
+    return matches[0];
+  }
+  function computeWorkBlock(dateISO){
+    var rule = findStandingWorkRule(dateISO);
+    if(rule){
+      if(rule.mode === "off") return null;
+      if(rule.mode === "hours"){
+        return {
+          time:rule.time,
+          endTime: rule.endTime || undefined,
+          title: rule.title || "Work",
+          detail: rule.detail || "",
+          category:"work"
+        };
+      }
+    }
+    return workBlockFor(fromISO(dateISO).getDay());
+  }
+  function isCategorySuppressed(category, dateISO){
+    return (workSettings.rules||[]).some(function(r){
+      return r.scope==="category" && r.action==="off" && r.category===category && ruleActiveOn(r, dateISO);
+    });
+  }
+  function defaultTemplateItemsFor(dateISO){
+    var weekday = fromISO(dateISO).getDay();
+    return (TEMPLATE[weekday]||[]).filter(function(t){ return !isCategorySuppressed(t.category, dateISO); });
+  }
+  function buildStandingRule(s){
+    if(!s || typeof s !== "object") return null;
+    var from = String(s.from||"");
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(from)) return null;
+    var to = (s.to && /^\d{4}-\d{2}-\d{2}$/.test(String(s.to))) ? String(s.to) : null;
+
+    if(s.scope === "category"){
+      var cat = (CAT_KEYS.indexOf(s.category)>=0 && s.category!=="work") ? s.category : null;
+      if(!cat) return null;
+      return {id:newId(), scope:"category", category:cat, action:"off", from:from, to:to};
+    }
+
+    var mode = s.mode === "off" ? "off" : (s.mode === "hours" ? "hours" : null);
+    if(!mode) return null;
+    var rule = {id:newId(), scope:"work", from:from, to:to, mode:mode};
+    if(mode === "hours"){
+      var t = normalizeTime(s.time);
+      if(!t) return null;
+      rule.time = t;
+      rule.endTime = s.endTime ? (normalizeTime(s.endTime) || undefined) : undefined;
+    }
+    rule.title = s.title ? String(s.title).slice(0,80) : (mode==="off" ? "No work" : "Work");
+    rule.detail = s.detail ? String(s.detail).slice(0,280) : "";
+    return rule;
+  }
+  function sameWorkBlock(existing, next){
+    if(!existing && !next) return true;
+    if(!existing || !next) return false;
+    return existing.time===next.time && existing.endTime===next.endTime && existing.title===next.title;
+  }
+  function templateSig(t){ return t.time+"|"+t.category+"|"+t.title; }
+  // Sweeps the current rule set back over every week already saved, but only
+  // touches an item that is still an untouched default (work or template) —
+  // anything Jacky has manually customized (a specific half day, an added
+  // shift, an edited gym session) is left exactly as they set it.
+  function applyRulesToWeekData(data){
+    var changed = false;
+    weekDates(data.weekStart).forEach(function(d){
+      var blocks = data.days[d] || [];
+      var work = blocks.filter(function(b){ return b.category==="work"; });
+      var nonWork = blocks.filter(function(b){ return b.category!=="work"; });
+      var customNonWork = nonWork.filter(function(b){ return !b.isDefault; });
+      var defaultNonWork = nonWork.filter(function(b){ return b.isDefault; });
+      var dayChanged = false;
+
+      var nextWork = work;
+      if(work.every(function(b){ return b.isDefault; })){
+        var nb = computeWorkBlock(d);
+        if(!sameWorkBlock(work[0], nb)){
+          nextWork = nb ? [Object.assign({}, nb, {id:newId(), isDefault:true})] : [];
+          dayChanged = true;
+        }
+      }
+
+      // Drop a default item whose category is no longer an ideal default for
+      // this date (its category just got suppressed) — but never touch a
+      // customized one. Then add any ideal default that isn't ALREADY present
+      // anywhere on the day (default or customized) — this is what stops a
+      // duplicate: if an earlier edit already left an equivalent item without
+      // the isDefault flag, its signature still counts as "present" and we
+      // don't add a second copy.
+      var idealDefaults = defaultTemplateItemsFor(d);
+      var idealSigs = idealDefaults.map(templateSig);
+      var survivingDefaults = defaultNonWork.filter(function(b){ return idealSigs.indexOf(templateSig(b)) !== -1; });
+      var keptNonWork = customNonWork.concat(survivingDefaults);
+      var presentSigs = keptNonWork.map(templateSig);
+      var toAdd = idealDefaults.filter(function(t){ return presentSigs.indexOf(templateSig(t)) === -1; });
+      if(survivingDefaults.length !== defaultNonWork.length || toAdd.length){
+        dayChanged = true;
+      }
+      var nextNonWork = keptNonWork.concat(toAdd.map(function(t){ return Object.assign({}, t, {id:newId(), isDefault:true}); }));
+
+      if(dayChanged){
+        data.days[d] = sortBlocks(nextWork.concat(nextNonWork));
+        changed = true;
+      }
+    });
+    if(changed) data.updatedAt = Date.now();
+    return changed;
+  }
+  function reapplyStandingRules(){
+    var store = loadLocalStore();
+    var changed = false;
+    Object.keys(store).forEach(function(weekStart){
+      if(applyRulesToWeekData(store[weekStart])){
+        changed = true;
+        weekCache[weekStart] = store[weekStart];
+      }
+    });
+    if(changed) saveLocalStore(store);
+    return Promise.resolve();
+  }
+  function loadSettings(){
+    try{
+      var raw = localStorage.getItem(SETTINGS_KEY);
+      return Promise.resolve(raw ? JSON.parse(raw) : {rules:[]});
+    }catch(e){ return Promise.resolve({rules:[]}); }
+  }
+  function saveSettings(){
+    try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(workSettings)); }catch(e){}
+    return Promise.resolve();
+  }
+  var TEMPLATE = {
+    1:[ // Monday
+      {time:"19:00", endTime:"20:00", title:"Lower-body strength", category:"gym",
+       detail:"Walking lunges with rotation, squat-to-reverse-lunge, single-leg glute bridge, box squats — eccentric quad control and glute/hip stability for turns and landings."},
+      {time:"20:15", title:"One-pan chicken & veg stir-fry", category:"dinner", detail:"Stir-fry with rice."}
+    ],
+    2:[ // Tuesday
+      {time:"19:00", endTime:"19:45", title:"Cardio intervals", category:"gym",
+       detail:"Run, bike or rower, 30–40 min alternating hard/easy — builds the aerobic-anaerobic base skiing demands."},
+      {time:"20:00", title:"Lentil & vegetable soup", category:"dinner", detail:"With crusty bread."}
+    ],
+    3:[ // Wednesday
+      {time:"19:00", endTime:"19:30", title:"Mobility & prehab", category:"gym",
+       detail:"Hip flexor and ankle mobility, foam rolling, light stretching — active recovery day."},
+      {time:"19:45", title:"Baked mackerel or salmon", category:"dinner", detail:"With roasted potatoes and greens."}
+    ],
+    4:[ // Thursday
+      {time:"19:00", endTime:"20:00", title:"Power, balance & core", category:"gym",
+       detail:"Lateral ski jumps, single-leg star balance, side plank with leg raise, plank — dynamic balance and knee control for variable snow."},
+      {time:"20:15", title:"Chilli con carne", category:"dinner", detail:"Beef or turkey mince with rice (batch-cookable)."}
+    ],
+    5:[ // Friday
+      {time:"17:30", endTime:"18:00", title:"Light mobility (optional)", category:"gym", detail:"Or full rest — short work day."},
+      {time:"19:00", title:"Fridge-clearout fried rice", category:"dinner", detail:"Veggie or egg fried rice."}
+    ],
+    6:[ // Saturday
+      {time:"09:00", endTime:"10:30", title:"Long conditioning session", category:"ski",
+       detail:"60–90 min hike, run or cycle on varied terrain — aerobic base plus proprioception work."}
+    ],
+    0:[ // Sunday
+      {time:"10:00", title:"Rest day", category:"rest", detail:"Optional light stretching or yoga."},
+      {time:"16:00", title:"Meal prep & shop", category:"other", detail:"Plan and shop for the week ahead."}
+    ]
+  };
+
+  function buildDefaultDay(dateISO){
+    var blocks = [];
+    var w = computeWorkBlock(dateISO);
+    if(w) blocks.push(Object.assign({}, w, {id:newId(), isDefault:true}));
+    defaultTemplateItemsFor(dateISO).forEach(function(t){
+      blocks.push(Object.assign({}, t, {id:newId(), isDefault:true}));
+    });
+    return sortBlocks(blocks);
+  }
+  function buildDefaultWeek(mIso){
+    var days = {};
+    weekDates(mIso).forEach(function(d){ days[d] = buildDefaultDay(d); });
+    return {weekStart:mIso, days:days, tasks:[], summary:"", updatedAt:Date.now()};
+  }
+
+  // Tasks live at the week level (shared by every Work block that week) so a
+  // task with a due date can show on more than one day, but which days it's
+  // VISIBLE on is worked out from createdDate/due — see taskVisibleOn().
+  // Normalizes older data that had tasks on individual blocks or no createdDate.
+  function normalizeWeek(data){
+    if(!Array.isArray(data.tasks)) data.tasks = [];
+    Object.keys(data.days||{}).forEach(function(d){
+      (data.days[d]||[]).forEach(function(blk){
+        if(Array.isArray(blk.tasks) && blk.tasks.length){
+          data.tasks = data.tasks.concat(blk.tasks);
+          delete blk.tasks;
+        }
+      });
+    });
+    data.tasks.forEach(function(t){
+      if(!t.createdDate) t.createdDate = data.weekStart;
+    });
+    // One-off cleanup for duplicate items an earlier bug could have left
+    // behind (same category/time/title appearing twice on a day). Keeps a
+    // customized copy over a default one if both exist.
+    Object.keys(data.days||{}).forEach(function(d){
+      var blocks = data.days[d] || [];
+      var bySig = {};
+      var deduped = [];
+      blocks.forEach(function(b){
+        var sig = (b.category||"")+"|"+(b.time||"")+"|"+(b.title||"");
+        var existingIdx = bySig[sig];
+        if(existingIdx === undefined){
+          bySig[sig] = deduped.length;
+          deduped.push(b);
+        } else if(deduped[existingIdx].isDefault && !b.isDefault){
+          deduped[existingIdx] = b; // prefer the customized copy
+        }
+        // otherwise: drop this duplicate
+      });
+      if(deduped.length !== blocks.length) data.days[d] = deduped;
+    });
+    return data;
+  }
+
+  // A task with no due date is only visible on the day it was added. A task
+  // with a due date is visible from the day it was added through its due
+  // date, inclusive — and keeps showing on days after that too as long as
+  // it's still not ticked off (overdue), disappearing only once it's done
+  // or, for an undated task, once its one day has passed.
+  function taskVisibleOn(t, dateISO){
+    if(!t.due) return t.createdDate === dateISO;
+    if(dateISO < t.createdDate) return false;
+    if(dateISO <= t.due) return true;
+    return !t.done; // past due — keep nagging until it's ticked off
+  }
+
+  // ---------- storage (localStorage only) ----------
+  var LOCAL_KEY = "piste-board-weeks-v1";
+  var weekCache = {};
+
+  function deepClone(o){
+    try{ return structuredClone(o); }catch(e){}
+    try{ return JSON.parse(JSON.stringify(o)); }catch(e){ return o; }
+  }
+
+  function loadLocalStore(){
+    try{
+      var raw = localStorage.getItem(LOCAL_KEY);
+      return raw ? JSON.parse(raw) : {};
+    }catch(e){ return {}; }
+  }
+  function saveLocalStore(store){
+    try{ localStorage.setItem(LOCAL_KEY, JSON.stringify(store)); }catch(e){}
+  }
+
+  function ensureWeekLoaded(mIso){
+    if(weekCache[mIso]) return Promise.resolve(weekCache[mIso]);
+    var store = loadLocalStore();
+    var data = store[mIso];
+    if(!data || !data.days){
+      data = buildDefaultWeek(mIso);
+      store[mIso] = data;
+      saveLocalStore(store);
+    } else {
+      normalizeWeek(data);
+    }
+    weekCache[mIso] = data;
+    return Promise.resolve(data);
+  }
+
+  function saveWeek(mIso){
+    weekCache[mIso].updatedAt = Date.now();
+    var store = loadLocalStore();
+    store[mIso] = weekCache[mIso];
+    saveLocalStore(store);
+    return Promise.resolve();
+  }
+
+  // ---------- Ask-Claude: direct Anthropic API calls ----------
+  var API_KEY_KEY = "piste-board-api-key-v1";
+  var MODEL_KEY = "piste-board-model-v1";
+  var apiKey = "";
+  var selectedModel = "claude-sonnet-5";
+
+  function readStoredApiKey(){ try{ return localStorage.getItem(API_KEY_KEY) || ""; }catch(e){ return ""; } }
+  function writeStoredApiKey(k){ try{ if(k) localStorage.setItem(API_KEY_KEY,k); else localStorage.removeItem(API_KEY_KEY); }catch(e){} }
+  function readStoredModel(){ try{ return localStorage.getItem(MODEL_KEY) || "claude-sonnet-5"; }catch(e){ return "claude-sonnet-5"; } }
+  function writeStoredModel(m){ try{ localStorage.setItem(MODEL_KEY, m); }catch(e){} }
+
+  function parseJsonLoose(text){
+    var t = String(text||"").trim();
+    var fence = t.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+    if(fence) t = fence[1].trim();
+    try{
+      return JSON.parse(t);
+    }catch(e1){
+      var first = t.indexOf("{"), last = t.lastIndexOf("}");
+      if(first>=0 && last>first){
+        return JSON.parse(t.slice(first, last+1));
+      }
+      throw e1;
+    }
+  }
+
+  // Calls the Anthropic Messages API directly from the browser. Requires the
+  // anthropic-dangerous-direct-browser-access header — Anthropic's own opt-in
+  // for client-side use — since there is no backend proxying this request.
+  function callAnthropic(opts){
+    if(!apiKey){
+      var e0 = new Error("No API key set"); e0.code = "no_key";
+      return Promise.reject(e0);
+    }
+    var body = {
+      model: selectedModel || "claude-sonnet-5",
+      max_tokens: opts.maxTokens || 1024,
+      messages: [{role:"user", content: opts.userText}],
+      stream: !!opts.stream
+    };
+    if(opts.system) body.system = opts.system;
+
+    return fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{
+        "content-type":"application/json",
+        "x-api-key": apiKey,
+        "anthropic-version":"2023-06-01",
+        "anthropic-dangerous-direct-browser-access":"true"
+      },
+      body: JSON.stringify(body)
+    }).then(function(res){
+      if(!res.ok){
+        return res.json().catch(function(){ return null; }).then(function(errBody){
+          var msg = (errBody && errBody.error && errBody.error.message) || ("HTTP "+res.status);
+          var err = new Error(msg);
+          if(res.status===401) err.code = "invalid_key";
+          else if(res.status===429) err.code = "rate_limited";
+          else if(res.status===413) err.code = "prompt_too_large";
+          else err.code = "upstream_error";
+          throw err;
+        });
+      }
+      if(!opts.stream){
+        return res.json().then(function(data){
+          var text = (data.content||[]).map(function(b){ return b.text||""; }).join("");
+          if(!text){ var e = new Error("Empty completion"); e.code = "empty_completion"; throw e; }
+          return text;
+        });
+      }
+      var reader = res.body.getReader();
+      var decoder = new TextDecoder();
+      var buf = "", full = "";
+      function processChunk(chunk){
+        var lines = chunk.split("\n");
+        var data = null;
+        lines.forEach(function(l){
+          if(l.indexOf("data:")===0) data = l.slice(5).trim();
+        });
+        if(!data) return;
+        var json;
+        try{ json = JSON.parse(data); }catch(e){ return; }
+        if(json.type==="content_block_delta" && json.delta && json.delta.type==="text_delta"){
+          full += json.delta.text;
+          if(opts.onDelta) opts.onDelta(full);
+        } else if(json.type==="error"){
+          var err = new Error((json.error && json.error.message) || "stream error");
+          err.code = "upstream_error";
+          throw err;
+        }
+      }
+      function pump(){
+        return reader.read().then(function(step){
+          if(step.done){
+            if(buf.trim()) processChunk(buf);
+            if(!full){ var e = new Error("Empty completion"); e.code = "empty_completion"; throw e; }
+            return full;
+          }
+          buf += decoder.decode(step.value, {stream:true});
+          var parts = buf.split("\n\n");
+          buf = parts.pop();
+          parts.forEach(processChunk);
+          return pump();
+        });
+      }
+      return pump();
+    });
+  }
+
+  function callAnthropicJSON(prompt){
+    return callAnthropic({
+      system: "You are a strict JSON generator. Respond with ONLY valid JSON matching the requested shape — no markdown code fences, no commentary, no text before or after the JSON.",
+      userText: prompt,
+      maxTokens: 3000,
+      stream:false
+    }).then(function(text){
+      try{
+        return parseJsonLoose(text);
+      }catch(e){
+        var err = new Error("Reply wasn't valid JSON"); err.code = "invalid_json";
+        throw err;
+      }
+    });
+  }
+
+  // ---------- state ----------
+  var today = new Date();
+  var selectedMonday = mondayISO(today);
+  var selectedDate = todayISO();
+
+  // ---------- DOM ----------
+  var $ = function(id){ return document.getElementById(id); };
+  var weekRangeEl = $("weekRange"), weekSubEl = $("weekSub"), summaryBanner = $("summaryBanner"), keyBanner = $("keyBanner"), keyBannerBtn = $("keyBannerBtn");
+  var dayPillsEl = $("dayPills"), dayHeadingEl = $("dayHeading"), dayDateSubEl = $("dayDateSub");
+  var blockListEl = $("blockList");
+  var addToggle = $("addToggle"), addForm = $("addForm");
+  var composerForm = $("composerForm"), composerInput = $("composerInput"), composerSend = $("composerSend");
+  var composerStatus = $("composerStatus"), composerHint = $("composerHint");
+  var sheetBackdrop = $("sheetBackdrop"), sheet = $("sheet");
+  var sheetTime = $("sheetTime"), sheetCat = $("sheetCat"), sheetTitle = $("sheetTitle"), sheetNotes = $("sheetNotes");
+  var howtoBox = $("howtoBox"), howtoText = $("howtoText"), howtoBtn = $("howtoBtn");
+  var sheetSave = $("sheetSave"), sheetStatus = $("sheetStatus");
+  var tasksBox = $("tasksBox"), taskListEl = $("taskList"), taskTextInput = $("taskText"), taskDueInput = $("taskDue"), taskAddBtn = $("taskAdd");
+  var settingsBtn = $("settingsBtn"), settingsBackdrop = $("settingsBackdrop"), settingsSheet = $("settingsSheet");
+  var apiKeyInput = $("apiKeyInput"), modelSelect = $("modelSelect"), apiKeySaveBtn = $("apiKeySave"), apiKeyClearBtn = $("apiKeyClear"), settingsStatus = $("settingsStatus");
+
+  function updateComposerHint(){
+    if(!apiKey){
+      composerHint.textContent = "Add your Anthropic API key in Settings (⚙) to enable Ask-Claude.";
+      keyBanner.hidden = false;
+    } else {
+      composerHint.textContent = 'Ask for a plan, note a half day / weekend shift, or try "what should I do this week?"';
+      keyBanner.hidden = true;
+    }
+  }
+
+  function renderHeader(){
+    var dates = weekDates(selectedMonday);
+    var start = fromISO(dates[0]), end = fromISO(dates[6]);
+    var sameMonth = start.getMonth() === end.getMonth();
+    var label = sameMonth
+      ? (start.getDate()+"–"+end.getDate()+" "+MON[start.getMonth()])
+      : (start.getDate()+" "+MON[start.getMonth()]+" – "+end.getDate()+" "+MON[end.getMonth()]);
+    weekRangeEl.textContent = label;
+    weekSubEl.textContent = start.getFullYear()+" · Week "+isoWeekNumber(start);
+
+    var wk = weekCache[selectedMonday];
+    if(wk && wk.summary){
+      summaryBanner.hidden = false;
+      summaryBanner.textContent = wk.summary;
+    } else {
+      summaryBanner.hidden = true;
+    }
+  }
+
+  function renderPills(){
+    var dates = weekDates(selectedMonday);
+    var wk = weekCache[selectedMonday];
+    var tISO = todayISO();
+    dayPillsEl.innerHTML = "";
+    dates.forEach(function(d){
+      var dt = fromISO(d);
+      var btn = document.createElement("button");
+      btn.className = "day-pill";
+      if(d === tISO) btn.classList.add("is-today");
+      if(d === selectedDate) btn.classList.add("is-selected");
+      var blocks = wk && wk.days[d] ? wk.days[d] : [];
+      if(blocks.some(function(b){ return !b.isDefault; })) btn.classList.add("has-plan");
+      btn.innerHTML = '<span class="dow">'+DOW[dt.getDay()]+'</span><span class="num mono">'+dt.getDate()+'</span><span class="dot"></span>';
+      btn.addEventListener("click", function(){
+        selectedDate = d;
+        renderPills();
+        renderAgenda();
+      });
+      dayPillsEl.appendChild(btn);
+    });
+  }
+
+  function catColorVar(cat){ return "var(--"+(CAT_KEYS.indexOf(cat)>=0?cat:"other")+")"; }
+
+  function renderAgenda(){
+    var wk = weekCache[selectedMonday];
+    var dt = fromISO(selectedDate);
+    var NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    dayHeadingEl.textContent = NAMES[dt.getDay()];
+    dayDateSubEl.textContent = dt.getDate()+" "+MON[dt.getMonth()]+(selectedDate===todayISO() ? " · Today" : "");
+
+    var blocks = (wk && wk.days[selectedDate]) ? wk.days[selectedDate].slice() : [];
+    sortBlocks(blocks);
+    blockListEl.innerHTML = "";
+    if(blocks.length === 0){
+      var empty = document.createElement("div");
+      empty.className = "empty-note";
+      empty.textContent = "Nothing planned yet. Add something below, or ask for a plan.";
+      blockListEl.appendChild(empty);
+    }
+    blocks.forEach(function(b){
+      var card = document.createElement("div");
+      card.className = "block";
+      card.style.setProperty("--cat-color", catColorVar(b.category));
+      var timeStr = b.time + (b.endTime ? "–"+b.endTime : "");
+      card.innerHTML =
+        '<div class="row1"><span class="time mono">'+timeStr+'</span>'+
+        '<span class="cat-label">'+(CAT_META[b.category]||CAT_META.other).label+'</span></div>'+
+        '<div class="title">'+escapeHtml(b.title)+'</div>'+
+        (b.detail ? '<div class="detail">'+escapeHtml(b.detail)+'</div>' : '')+
+        (b.category === "work" ? taskBadge(wk, selectedDate) : (b.howTo ? '<span class="guide-note">Guide saved · tap for details</span>' : ''));
+      if(b.isDefault){
+        var note = document.createElement("span");
+        note.className = "default-note"; note.textContent = "usual";
+        card.appendChild(note);
+      }
+      var del = document.createElement("button");
+      del.className = "del"; del.type = "button"; del.setAttribute("aria-label","Remove");
+      del.textContent = "×";
+      del.addEventListener("click", function(ev){
+        ev.stopPropagation();
+        wk.days[selectedDate] = wk.days[selectedDate].filter(function(x){ return x.id !== b.id; });
+        saveWeek(selectedMonday).then(function(){ renderPills(); renderAgenda(); });
+      });
+      card.appendChild(del);
+      card.addEventListener("click", function(){ openSheet(b); });
+      blockListEl.appendChild(card);
+    });
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  function render(){
+    renderHeader();
+    renderPills();
+    renderAgenda();
+  }
+
+  // ---------- week navigation ----------
+  $("prevWeek").addEventListener("click", function(){ goToWeek(addWeeksISO(selectedMonday,-1)); });
+  $("nextWeek").addEventListener("click", function(){ goToWeek(addWeeksISO(selectedMonday,1)); });
+  function goToWeek(mIso){
+    ensureWeekLoaded(mIso).then(function(){
+      selectedMonday = mIso;
+      var dates = weekDates(mIso);
+      selectedDate = dates.indexOf(todayISO()) >= 0 ? todayISO() : dates[0];
+      render();
+    });
+  }
+
+  // ---------- manual add ----------
+  addToggle.addEventListener("click", function(){
+    addForm.hidden = !addForm.hidden;
+    if(!addForm.hidden) $("fTitle").focus();
+  });
+  $("fCancel").addEventListener("click", function(){ addForm.hidden = true; addForm.reset(); });
+  addForm.addEventListener("submit", function(e){
+    e.preventDefault();
+    var time = normalizeTime($("fTime").value);
+    if(!time) return;
+    var block = {
+      id:newId(),
+      time:time,
+      endTime: normalizeTime($("fEnd").value) || undefined,
+      title: $("fTitle").value.trim().slice(0,80) || "Untitled",
+      category: $("fCategory").value,
+      detail: $("fDetail").value.trim().slice(0,280)
+    };
+    var wk = weekCache[selectedMonday];
+    wk.days[selectedDate] = sortBlocks((wk.days[selectedDate]||[]).concat([block]));
+    saveWeek(selectedMonday).then(function(){
+      addForm.hidden = true; addForm.reset();
+      renderPills(); renderAgenda();
+    });
+  });
+
+  // ---------- detail sheet (notes + how-to lookup) ----------
+  var currentBlock = null;
+  var currentWeek = null;
+
+  function taskBadge(wk, dateISO){
+    var all = (wk && wk.tasks) || [];
+    var tasks = all.filter(function(t){ return taskVisibleOn(t, dateISO); });
+    if(tasks.length === 0) return "";
+    var open = tasks.filter(function(t){ return !t.done; });
+    if(open.length === 0) return '<span class="guide-note">All tasks done</span>';
+    var dated = open.filter(function(t){ return t.due; }).sort(function(a,c){ return a.due.localeCompare(c.due); });
+    var label = open.length + " task" + (open.length>1?"s":"") + " open";
+    if(dated.length){
+      var soonest = dated[0];
+      var overdue = soonest.due < todayISO();
+      label += " · " + (overdue ? "overdue " : "due ") + formatShortDate(soonest.due);
+    }
+    return '<span class="guide-note">'+escapeHtml(label)+'</span>';
+  }
+  function formatShortDate(iso){
+    var d = fromISO(iso);
+    return d.getDate()+" "+MON[d.getMonth()];
+  }
+
+  function openSheet(b){
+    currentBlock = b;
+    currentWeek = weekCache[selectedMonday];
+    var timeStr = b.time + (b.endTime ? "–"+b.endTime : "");
+    sheetTime.textContent = timeStr;
+    sheetCat.textContent = (CAT_META[b.category]||CAT_META.other).label;
+    sheetTitle.textContent = b.title;
+    sheetNotes.value = b.detail || "";
+    sheet.style.setProperty("--cat-color", catColorVar(b.category));
+    setSheetStatus("");
+
+    if(b.category === "work"){
+      howtoBox.hidden = true;
+      howtoBtn.hidden = true;
+      tasksBox.hidden = false;
+      taskTextInput.value = "";
+      taskDueInput.value = "";
+      renderTasks();
+    } else {
+      tasksBox.hidden = true;
+      if(b.howTo){
+        howtoBox.hidden = false;
+        howtoText.textContent = b.howTo;
+        howtoBtn.textContent = "Refresh how-to";
+      } else {
+        howtoBox.hidden = true;
+        howtoText.textContent = "";
+        howtoBtn.textContent = howToVerb(b.category);
+      }
+      howtoBtn.hidden = false;
+    }
+    sheetBackdrop.classList.add("open");
+    sheet.classList.add("open");
+  }
+
+  function renderTasks(){
+    var wk = currentWeek;
+    if(!wk) return;
+    var tasks = (wk.tasks || []).filter(function(t){ return taskVisibleOn(t, selectedDate); }).sort(function(a,c){
+      if(!!a.done !== !!c.done) return a.done ? 1 : -1;
+      if(a.due && c.due) return a.due.localeCompare(c.due);
+      if(a.due) return -1;
+      if(c.due) return 1;
+      return 0;
+    });
+    taskListEl.innerHTML = "";
+    if(tasks.length === 0){
+      var empty = document.createElement("div");
+      empty.className = "task-empty";
+      empty.textContent = "No tasks yet.";
+      taskListEl.appendChild(empty);
+      return;
+    }
+    var tISO = todayISO();
+    tasks.forEach(function(t){
+      var row = document.createElement("div");
+      row.className = "task-row" + (t.done ? " done" : "") + (!t.done && t.due && t.due < tISO ? " overdue" : "");
+      var cb = document.createElement("input");
+      cb.type = "checkbox"; cb.checked = !!t.done;
+      cb.addEventListener("change", function(){
+        t.done = cb.checked;
+        saveWeek(selectedMonday).then(function(){ renderTasks(); renderAgenda(); });
+      });
+      var main = document.createElement("div");
+      main.className = "task-main";
+      main.innerHTML = '<div class="task-text"></div>' + (t.due ? '<span class="task-due"></span>' : "");
+      main.querySelector(".task-text").textContent = t.text;
+      if(t.due){
+        var dueEl = main.querySelector(".task-due");
+        var overdue = !t.done && t.due < tISO;
+        dueEl.textContent = (overdue ? "Overdue · " : "Due ") + formatShortDate(t.due);
+      }
+      var del = document.createElement("button");
+      del.className = "task-del"; del.type = "button"; del.setAttribute("aria-label","Remove task");
+      del.textContent = "×";
+      del.addEventListener("click", function(){
+        wk.tasks = (wk.tasks||[]).filter(function(x){ return x.id !== t.id; });
+        saveWeek(selectedMonday).then(function(){ renderTasks(); renderAgenda(); });
+      });
+      row.appendChild(cb);
+      row.appendChild(main);
+      row.appendChild(del);
+      taskListEl.appendChild(row);
+    });
+  }
+
+  taskAddBtn.addEventListener("click", function(){
+    if(!currentWeek) return;
+    var text = taskTextInput.value.trim().slice(0,120);
+    if(!text) return;
+    var due = taskDueInput.value || null;
+    currentWeek.tasks = (currentWeek.tasks || []).concat([{id:newId(), text:text, due:due, done:false, createdDate:selectedDate}]);
+    taskTextInput.value = "";
+    taskDueInput.value = "";
+    saveWeek(selectedMonday).then(function(){
+      renderTasks();
+      renderAgenda();
+    });
+  });
+  taskTextInput.addEventListener("keydown", function(e){
+    if(e.key === "Enter"){ e.preventDefault(); taskAddBtn.click(); }
+  });
+  function closeSheet(){
+    sheetBackdrop.classList.remove("open");
+    sheet.classList.remove("open");
+    currentBlock = null;
+    currentWeek = null;
+  }
+  function setSheetStatus(msg, isErr){
+    sheetStatus.textContent = msg || "";
+    sheetStatus.classList.toggle("err", !!isErr);
+  }
+  function howToVerb(cat){
+    if(cat==="gym" || cat==="ski") return "Look up how to do this";
+    if(cat==="dinner") return "Look up the recipe";
+    return "Look up more about this";
+  }
+
+  sheetBackdrop.addEventListener("click", closeSheet);
+
+  sheetSave.addEventListener("click", function(){
+    if(!currentBlock) return;
+    currentBlock.detail = sheetNotes.value.trim().slice(0,500);
+    saveWeek(selectedMonday).then(function(){
+      renderAgenda();
+      closeSheet();
+    });
+  });
+
+  function howToPrompt(b){
+    var titleDetail = '"'+b.title+'"'+(b.detail ? " ("+b.detail+")" : "");
+    if(b.category === "gym" || b.category === "ski"){
+      return "Jacky is preparing for ski season and has this session on their timetable: "+titleDetail+". "+
+        "Explain, for someone at intermediate fitness, exactly how to do it safely and effectively. Cover in plain text with short labelled lines (no markdown headers, no asterisks): correct form/technique, suggested sets/reps or duration, a common mistake to avoid, and one safety note. Under 160 words.";
+    }
+    if(b.category === "dinner"){
+      return "Give a simple, practical home-cook recipe for this dinner on Jacky's timetable: "+titleDetail+". "+
+        "Serves 1-2, realistic for a weeknight. Plain text, no markdown headers or asterisks: a short ingredient list with approximate quantities, then numbered steps. Under 160 words.";
+    }
+    return "Jacky has this on their weekly timetable: "+titleDetail+". Give 3-5 short, specific, practical tips for it, as plain text lines (no markdown headers or asterisks).";
+  }
+
+  howtoBtn.addEventListener("click", function(){
+    if(!currentBlock) return;
+    if(!apiKey){
+      setSheetStatus("Add your Anthropic API key in Settings first.", true);
+      openSettings();
+      return;
+    }
+    var b = currentBlock;
+    howtoBtn.disabled = true;
+    howtoBox.hidden = false;
+    howtoText.textContent = "Thinking…";
+    setSheetStatus("");
+    callAnthropic({
+      userText: howToPrompt(b),
+      maxTokens: 500,
+      stream: true,
+      onDelta: function(text){ howtoText.textContent = text; }
+    }).then(function(fullText){
+      b.howTo = fullText;
+      howtoBtn.textContent = "Refresh how-to";
+      return saveWeek(selectedMonday);
+    }).then(function(){
+      renderAgenda();
+    }).catch(function(err){
+      var code = err && err.code;
+      if(code !== "empty_completion") howtoText.textContent = "";
+      if(code === "no_key"){ setSheetStatus("Add your Anthropic API key in Settings first."); openSettings(); }
+      else if(code === "invalid_key"){ setSheetStatus("That API key was rejected — check it in Settings."); }
+      else if(code === "rate_limited"){ setSheetStatus("Too many requests just now — try again shortly."); }
+      else if(code === "prompt_too_large"){ setSheetStatus("That request was too large — try again."); }
+      else { setSheetStatus("Couldn't look that up — try again."); }
+    }).finally(function(){
+      howtoBtn.disabled = false;
+    });
+  });
+
+  // ---------- settings sheet ----------
+  function openSettings(){
+    apiKeyInput.value = apiKey;
+    modelSelect.value = selectedModel;
+    settingsStatus.textContent = "";
+    settingsBackdrop.classList.add("open");
+    settingsSheet.classList.add("open");
+  }
+  function closeSettings(){
+    settingsBackdrop.classList.remove("open");
+    settingsSheet.classList.remove("open");
+  }
+  settingsBtn.addEventListener("click", openSettings);
+  keyBannerBtn.addEventListener("click", openSettings);
+  settingsBackdrop.addEventListener("click", closeSettings);
+  apiKeySaveBtn.addEventListener("click", function(){
+    apiKey = apiKeyInput.value.trim();
+    selectedModel = modelSelect.value;
+    writeStoredApiKey(apiKey);
+    writeStoredModel(selectedModel);
+    updateComposerHint();
+    settingsStatus.textContent = apiKey ? "Saved." : "No key set — Ask-Claude is disabled.";
+    settingsStatus.classList.remove("err");
+  });
+  apiKeyClearBtn.addEventListener("click", function(){
+    apiKey = "";
+    apiKeyInput.value = "";
+    writeStoredApiKey("");
+    updateComposerHint();
+    settingsStatus.textContent = "Key cleared.";
+    settingsStatus.classList.remove("err");
+  });
+
+  // ---------- ask-Claude composer ----------
+  function setComposerStatus(msg, isErr){
+    composerStatus.textContent = msg || "";
+    composerStatus.classList.toggle("err", !!isErr);
+  }
+  function setComposerBusy(busy){
+    composerInput.disabled = busy;
+    composerSend.disabled = busy;
+  }
+
+  function fullContext(days){
+    var out = {};
+    Object.keys(days).forEach(function(d){
+      out[d] = days[d].map(function(b){
+        return {time:b.time, endTime:b.endTime, title:b.title, detail:b.detail, category:b.category};
+      });
+    });
+    return out;
+  }
+
+  function buildPrompt(message){
+    var dates = weekDates(selectedMonday);
+    var existing = weekCache[selectedMonday] ? fullContext(weekCache[selectedMonday].days) : {};
+    var t = new Date();
+    return "You are the planning engine behind Piste Board, a personal weekly timetable for Jacky, a real-estate negotiator in London (Supernova Real Estate, Euston NW1) who is conditioning for ski season.\n\n"+
+      "Today's date: "+toISO(t)+" ("+["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][t.getDay()]+").\n"+
+      "Jacky is currently viewing the week of "+dates[0]+" to "+dates[6]+".\n"+
+      "Jacky's USUAL work hours are Mon-Thu 09:00-18:00, Fri 09:00-16:30, no work Sat/Sun — but these can change on individual dates (a half day, a day off, working a weekend, a holiday) when Jacky says so. Jacky's USUAL weekday routine also includes a template gym/dinner/ski/rest session per weekday, which is what gets used whenever a week doesn't yet have anything specific planned.\n"+
+      "Standing changes already in effect beyond just one week (most recently-starting first): "+JSON.stringify(workSettings.rules||[])+"\n\n"+
+      "Current full plan for that week, for context, including any work entries already on it (may be a default draft or empty):\n"+JSON.stringify(existing)+"\n\n"+
+      "Jacky's request: \""+message+"\"\n\n"+
+      "Decide which Monday-start week this request refers to (it may be the week above, next week, or another week relative to today). If unclear, use "+dates[0]+".\n"+
+      "Reply with ONLY strict JSON, no markdown fences, no commentary, matching exactly this shape:\n"+
+      "{\n"+
+      '  "weekStartDate": "YYYY-MM-DD",\n'+
+      '  "summary": "one short plain-text sentence describing the week\'s focus",\n'+
+      '  "workOverrides": { "YYYY-MM-DD": { "time": "HH:MM", "endTime": "HH:MM", "title": "short label e.g. Half day / Weekend viewing" } },\n'+
+      '  "standingChanges": [ { "scope": "work", "from": "YYYY-MM-DD", "to": "YYYY-MM-DD or null", "mode": "off or hours", "time": "HH:MM", "endTime": "HH:MM", "title": "short label", "detail": "short note" } ],\n'+
+      '  "days": {\n'+
+      '    "YYYY-MM-DD": [ { "time": "HH:MM", "endTime": "HH:MM (optional)", "title": "short title", "detail": "1-2 sentence note or instruction", "category": "gym|ski|dinner|rest|social|other" } ]\n'+
+      "  }\n"+
+      "}\n"+
+      "weekStartDate must be a Monday.\n"+
+      '"workOverrides" is OPTIONAL and only for a date-specific, one-off change within the CURRENT week only (a single half day, a single weekend shift): include a date with an object to set new work hours that day, or with the JSON value null to mean no work at all that day (a full day off). Omit a date entirely to leave that day\'s schedule untouched.\n'+
+      '"standingChanges" is OPTIONAL — an array (usually empty or one item) for anything that changes the USUAL routine beyond just this one week, in either of two ways:\n'+
+      '  - {"scope":"work", ...}: work itself changes long-term — resigning or a last working day, a new job with different standing hours, going part-time from a date onward. "mode":"off" means no work at all from "from" onward (only set "to" if not indefinite); "mode":"hours" sets new standing work hours from "from" onward (both "time" and "endTime" then required). If Jacky names a LAST working day, set "from" to the day AFTER it — they still work as usual through their last day.\n'+
+      '  - {"scope":"category", "category":"gym|ski|dinner|rest|social|other", "action":"off", "from":"YYYY-MM-DD", "to":"YYYY-MM-DD or null"}: the usual TEMPLATE session for that category stops happening from "from" onward (e.g. "no more gym once ski season starts" -> stop the usual gym template sessions for that date range; other categories like dinner are untouched unless separately mentioned).\n'+
+      'Use "standingChanges" for anything spanning more than the current week, including a range that starts and ends in the future (e.g. "ski season is 1 Dec to end of April" -> from that season\'s start to its end, inferring the correct year(s) from today\'s date). Omit it entirely for a one-off single-date request — use "workOverrides" or a single dated entry in "days" for those instead. This governs every week going forward, including ones not yet created, so never also duplicate the same change as a "workOverrides" entry or by hand-editing "days" for dates in that range.\n'+
+      'Never put a "work" category block inside "days"; work only ever comes through "workOverrides" or "standingChanges".\n'+
+      '"days" only needs the date(s) the request actually touches — it does NOT need all 7 dates. A date you omit from "days" is left completely unchanged (whatever is in "Current full plan" above stays). Rules for a date you DO include:\n'+
+      "  - If the request adds or changes something for that date, its array must be the COMPLETE list of non-work items for that date afterwards — so start from that date's existing non-work items above (if any) and add/edit/remove only what Jacky asked for, keeping the rest.\n"+
+      "  - If the request is a full replan of the whole week (e.g. \"plan my week\", \"what should I do this week\"), include all 7 dates with a fresh set for each, using category \"rest\" for a deliberate rest day.\n"+
+      "  - A single small ask (e.g. adding one session on one day) should touch ONLY that one date.\n"+
+      "Base any gym/conditioning content on established pre-season ski-conditioning practice: progressive strength, cardio intervals, mobility/prehab, and power-and-balance work, with adequate recovery — tailored to what Jacky asked for, and lighter or later on a day whose work hours just got longer.";
+  }
+
+  function buildWorkBlock(dateISO, override){
+    var weekday = fromISO(dateISO).getDay();
+    var t = normalizeTime(override && override.time);
+    if(!t){ return workBlockFor(weekday) ? Object.assign({}, workBlockFor(weekday), {id:newId()}) : null; }
+    return {
+      id:newId(),
+      time:t,
+      endTime: override.endTime ? (normalizeTime(override.endTime) || undefined) : undefined,
+      title: override.title ? String(override.title).slice(0,80) : "Work",
+      detail: override.detail ? String(override.detail).slice(0,280) : "",
+      category:"work"
+    };
+  }
+
+  function applyPlan(data){
+    if(!data || typeof data !== "object"){
+      var e = new Error("Reply wasn't a JSON object");
+      e.code = "bad_shape";
+      throw e;
+    }
+    var days = (data.days && typeof data.days === "object") ? data.days : {};
+    var wsRaw = String(data.weekStartDate||"");
+    var m = wsRaw.match(/^\d{4}-\d{2}-\d{2}$/);
+    var target = m ? mondayISO(fromISO(wsRaw)) : selectedMonday;
+    var overrides = (data.workOverrides && typeof data.workOverrides === "object") ? data.workOverrides : {};
+
+    var standingPromise = Promise.resolve();
+    var newRules = Array.isArray(data.standingChanges) ? data.standingChanges.map(buildStandingRule).filter(Boolean) : [];
+    if(newRules.length){
+      workSettings.rules = (workSettings.rules||[]).concat(newRules);
+      standingPromise = saveSettings().then(reapplyStandingRules);
+    }
+
+    return standingPromise.then(function(){
+      return ensureWeekLoaded(target);
+    }).then(function(){
+      var wk = weekCache[target];
+      weekDates(target).forEach(function(d){
+        var existingWork = (wk.days[d]||[]).filter(function(b){ return b.category==="work"; });
+        var workBlocks;
+        if(Object.prototype.hasOwnProperty.call(overrides, d)){
+          var ov = overrides[d];
+          if(ov === null || ov === false){
+            workBlocks = []; // explicit day off
+          } else if(ov && typeof ov === "object"){
+            var wb = buildWorkBlock(d, ov);
+            workBlocks = wb ? [wb] : [];
+          } else {
+            workBlocks = existingWork;
+          }
+        } else {
+          workBlocks = existingWork; // unmentioned — leave as-is
+        }
+        var mentioned = Object.prototype.hasOwnProperty.call(days, d);
+        var cleaned;
+        if(mentioned){
+          var incoming = Array.isArray(days[d]) ? days[d] : [];
+          cleaned = incoming.filter(function(b){ return b && b.category!=="work" && b.title; }).map(function(b){
+            var time = normalizeTime(b.time) || "12:00";
+            return {
+              id:newId(),
+              time:time,
+              endTime: b.endTime ? (normalizeTime(b.endTime)||undefined) : undefined,
+              title:String(b.title).slice(0,80),
+              detail: b.detail ? String(b.detail).slice(0,280) : "",
+              category: CAT_KEYS.indexOf(b.category)>=0 && b.category!=="work" ? b.category : "other"
+            };
+          });
+        } else {
+          // date not mentioned in the response — leave its existing non-work items untouched
+          cleaned = (wk.days[d]||[]).filter(function(b){ return b.category!=="work"; });
+        }
+        wk.days[d] = sortBlocks(workBlocks.concat(cleaned));
+      });
+      if(data.summary) wk.summary = String(data.summary).slice(0,160);
+      return saveWeek(target).then(function(){ return target; });
+    });
+  }
+
+  composerForm.addEventListener("submit", function(e){
+    e.preventDefault();
+    var message = composerInput.value.trim();
+    if(!message) return;
+    if(!apiKey){
+      setComposerStatus("Add your Anthropic API key in Settings first.", true);
+      openSettings();
+      return;
+    }
+    setComposerBusy(true);
+    setComposerStatus("Planning your week…");
+    var prompt = buildPrompt(message);
+    callAnthropicJSON(prompt).then(function(data){
+      return applyPlan(data);
+    }).then(function(target){
+      selectedMonday = target;
+      var dates = weekDates(target);
+      selectedDate = dates.indexOf(todayISO()) >= 0 ? todayISO() : dates[0];
+      render();
+      var wk = weekCache[target];
+      setComposerStatus(wk.summary ? "Planned — "+wk.summary : "Planned your week.");
+      composerInput.value = "";
+      setTimeout(function(){ setComposerStatus(""); }, 4000);
+    }).catch(function(err){
+      var code = err && err.code;
+      var msg;
+      switch(code){
+        case "no_key":
+          msg = "Add your Anthropic API key in Settings first.";
+          openSettings();
+          break;
+        case "invalid_key":
+          msg = "That API key was rejected — check it in Settings.";
+          break;
+        case "rate_limited":
+          msg = "Too many requests just now — try again shortly.";
+          break;
+        case "invalid_json":
+          msg = "Got a reply that wasn't valid plan data — try again, maybe with simpler wording.";
+          break;
+        case "prompt_too_large":
+          msg = "That request plus the current week is too much to send — try a shorter message.";
+          break;
+        case "empty_completion":
+          msg = "Claude didn't produce a plan for that — try rephrasing.";
+          break;
+        case "bad_shape":
+          msg = "Got back something that wasn't a usable plan — try again, maybe with simpler wording.";
+          break;
+        case "upstream_error":
+          msg = "Connection hiccup — try again.";
+          break;
+        default:
+          msg = "Couldn't plan that" + ((err && err.message) ? " (" + err.message + ")" : "") + " — try again.";
+      }
+      setComposerStatus(msg, !!msg);
+    }).finally(function(){
+      setComposerBusy(false);
+    });
+  });
+
+  // ---------- init ----------
+  function init(){
+    apiKey = readStoredApiKey();
+    selectedModel = readStoredModel();
+    updateComposerHint();
+    loadSettings().then(function(s){
+      workSettings = (s && Array.isArray(s.rules)) ? s : {rules:[]};
+      return ensureWeekLoaded(selectedMonday);
+    }).then(function(){
+      render();
+    });
+  }
+  init();
+})();
+</script>
+</body>
+</html>
